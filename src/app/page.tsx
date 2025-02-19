@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminPanel from '@/components/AdminPanel';
+import { supabase } from '@/lib/supabase';
 
 export default function Page() {
   const router = useRouter();
@@ -10,17 +11,21 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const authStatus = localStorage.getItem('isLoggedIn') === 'true';
-      setIsAuthenticated(authStatus);
-      setIsLoading(false);
-      
-      if (!authStatus) {
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setIsAuthenticated(true);
+        } else {
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
         router.push('/login');
       }
+      setIsLoading(false);
     };
-
-    checkAuth();
+    checkSession();
   }, [router]);
 
   if (isLoading) {

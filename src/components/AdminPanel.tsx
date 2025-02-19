@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, Pencil, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 interface MenuItem {
   id: string;
@@ -25,9 +26,14 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('products');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    router.push('/login');
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error("Logout failed:", error);
+    } else {
+      router.push("/login"); 
+    }
   };
 
   const menuItems: MenuItem[] = [
