@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 interface MenuItem {
   id: string;
-  icon: React.ElementType;  // Changed from ComponentType to ElementType
+  icon: React.ElementType;
   label: string;
 }
 
@@ -23,6 +23,7 @@ export default function AdminPanel() {
   const router = useRouter();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('products');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
@@ -61,6 +62,19 @@ export default function AdminPanel() {
     }
   ];
 
+  const filteredProducts = products.filter(product => {
+    const searchTerm = searchQuery.toLowerCase();
+    return (
+      product.id.toLowerCase().includes(searchTerm) ||
+      product.name.toLowerCase().includes(searchTerm) ||
+      product.category.toLowerCase().includes(searchTerm)
+    );
+  });
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
   const handleEdit = (productId: string) => {
     router.push(`/products/edit/${productId}`);
   };
@@ -97,7 +111,6 @@ export default function AdminPanel() {
             );
           })}
           
-          {/* Logout Button in Sidebar */}
           <button
             onClick={handleLogout}
             className="w-full flex items-center p-3 mb-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
@@ -110,7 +123,6 @@ export default function AdminPanel() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        {/* Header */}
         <header className="bg-white border-b">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-4">
@@ -134,13 +146,14 @@ export default function AdminPanel() {
             </div>
           </div>
           
-          {/* Filters */}
           <div className="p-4 border-t flex items-center space-x-4">
             <div className="flex items-center bg-white border rounded-lg px-4 py-2 flex-1">
               <Search className="w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search products..."
+                value={searchQuery}
+                onChange={handleSearch}
+                placeholder="Search by ID, name, or category..."
                 className="ml-2 outline-none w-full"
               />
             </div>
@@ -154,7 +167,6 @@ export default function AdminPanel() {
           </div>
         </header>
 
-        {/* Product List */}
         <main className="p-6">
           <div className="bg-white rounded-lg border">
             <div className="grid grid-cols-5 gap-4 p-4 border-b font-medium text-sm text-gray-500">
@@ -164,29 +176,35 @@ export default function AdminPanel() {
               <div>Actions</div>
             </div>
             
-            {products.map((product) => (
-              <div 
-                key={product.id}
-                className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50 items-center"
-              >
-                <div className="font-medium">{product.id}</div>
-                <div className="col-span-2">
-                  <div className="font-medium">{product.name}</div>
-                  <div className="text-sm text-gray-500">Last updated: {product.lastUpdated}</div>
-                </div>
-                <div>{product.category}</div>
-                <div>
-                  <Button 
-                    variant="ghost" 
-                    className="flex items-center space-x-2 hover:bg-gray-100"
-                    onClick={() => handleEdit(product.id)}
-                  >
-                    <Pencil className="w-4 h-4 text-gray-500" />
-                    <span>Edit</span>
-                  </Button>
-                </div>
+            {filteredProducts.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                No products found matching your search.
               </div>
-            ))}
+            ) : (
+              filteredProducts.map((product) => (
+                <div 
+                  key={product.id}
+                  className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50 items-center"
+                >
+                  <div className="font-medium">{product.id}</div>
+                  <div className="col-span-2">
+                    <div className="font-medium">{product.name}</div>
+                    <div className="text-sm text-gray-500">Last updated: {product.lastUpdated}</div>
+                  </div>
+                  <div>{product.category}</div>
+                  <div>
+                    <Button 
+                      variant="ghost" 
+                      className="flex items-center space-x-2 hover:bg-gray-100"
+                      onClick={() => handleEdit(product.id)}
+                    >
+                      <Pencil className="w-4 h-4 text-gray-500" />
+                      <span>Edit</span>
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </main>
       </div>
