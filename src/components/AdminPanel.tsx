@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, Pencil, LogOut, Eye, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, Pencil, LogOut, Eye, Plus, UserPlus, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +25,17 @@ export default function AdminPanel() {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('products');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const { data } = await supabase.auth.getSession();
+      if (data.session && data.session.user && data.session.user.email) {
+        setUserEmail(data.session.user.email);
+      }
+    }
+    fetchUser();
+  }, []);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -85,6 +96,14 @@ export default function AdminPanel() {
     router.push(`/products/edit/${productId}`);
   };
 
+  const handleView = (productId: string) => {
+    router.push(`/products/view/${productId}`);
+  };
+
+  const handleRegister = () => {
+    router.push('/register');
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -116,6 +135,14 @@ export default function AdminPanel() {
               </button>
             );
           })}
+
+          <button
+            onClick={handleRegister}
+            className="w-full flex items-center p-3 mb-2 rounded-lg transition-colors text-blue-600 hover:bg-blue-50"
+          >
+            <UserPlus className="w-5 h-5" />
+            {isSidebarOpen && <span className="ml-3">Register User</span>}
+          </button>
 
           <button
             onClick={handleLogout}
@@ -157,6 +184,13 @@ export default function AdminPanel() {
                 <Plus className="w-4 h-4" />
                 <span>Add Product</span>
               </Button>
+              {/* Profile Icon */}
+              {userEmail && (
+                <div className="flex items-center space-x-2">
+                  <User className="w-5 h-5 text-gray-500" />
+                  <span className="text-sm text-gray-700">{userEmail}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -210,7 +244,7 @@ export default function AdminPanel() {
                     <Button
                       variant="ghost"
                       className="flex items-center space-x-2 hover:bg-gray-100"
-                      onClick={() => handleEdit(product.id)}
+                      onClick={() => handleView(product.id)}
                     >
                       <Eye className="w-4 h-4 text-gray-500" />
                       <span>View</span>
