@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, Pencil, LogOut } from 'lucide-react';
+import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, Pencil, LogOut, Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -28,11 +28,11 @@ export default function AdminPanel() {
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
-    
+
     if (error) {
       console.error("Logout failed:", error);
     } else {
-      router.push("/login"); 
+      router.push("/login");
     }
   };
 
@@ -93,14 +93,14 @@ export default function AdminPanel() {
           <div className={`font-bold text-xl ${!isSidebarOpen && 'hidden'}`}>
             JUNG
           </div>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!isSidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-100"
           >
             {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
-        
+
         <nav className="p-4">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -116,7 +116,7 @@ export default function AdminPanel() {
               </button>
             );
           })}
-          
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center p-3 mb-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
@@ -136,22 +136,30 @@ export default function AdminPanel() {
               <div className="text-sm text-gray-500">All products ({products.length})</div>
             </div>
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Export</span>
               </Button>
-              <Button 
+              <Button
                 className="flex items-center space-x-2"
               >
                 <Upload className="w-4 h-4" />
                 <span>Import</span>
               </Button>
+              {/* Add Product Button */}
+              <Button
+                className="flex items-center space-x-2"
+                onClick={() => router.push('/products/add')}
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Product</span>
+              </Button>
             </div>
           </div>
-          
+
           <div className="p-4 border-t flex items-center space-x-4">
             <div className="flex items-center bg-white border rounded-lg px-4 py-2 flex-1">
               <Search className="w-5 h-5 text-gray-400" />
@@ -163,8 +171,8 @@ export default function AdminPanel() {
                 className="ml-2 outline-none w-full"
               />
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="flex items-center space-x-2"
             >
               <Filter className="w-4 h-4" />
@@ -179,16 +187,16 @@ export default function AdminPanel() {
               <div>Product ID</div>
               <div className="col-span-2">Name</div>
               <div>Category</div>
-              <div>Actions</div>
+              <div className="text-center">Actions</div>
             </div>
-            
+
             {filteredProducts.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
                 No products found matching your search.
               </div>
             ) : (
               filteredProducts.map((product) => (
-                <div 
+                <div
                   key={product.id}
                   className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50 items-center"
                 >
@@ -198,9 +206,17 @@ export default function AdminPanel() {
                     <div className="text-sm text-gray-500">Last updated: {product.lastUpdated}</div>
                   </div>
                   <div>{product.category}</div>
-                  <div>
-                    <Button 
-                      variant="ghost" 
+                  <div className="flex justify-center space-x-4">
+                    <Button
+                      variant="ghost"
+                      className="flex items-center space-x-2 hover:bg-gray-100"
+                      onClick={() => handleEdit(product.id)}
+                    >
+                      <Eye className="w-4 h-4 text-gray-500" />
+                      <span>View</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
                       className="flex items-center space-x-2 hover:bg-gray-100"
                       onClick={() => handleEdit(product.id)}
                     >
