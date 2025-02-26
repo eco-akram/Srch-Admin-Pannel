@@ -25,9 +25,27 @@ export default function AdminPanel() {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('products');
   const [searchQuery, setSearchQuery] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-
+  
   useEffect(() => {
+    async function fetchProducts() {
+      const { data, error } = await supabase.from('Products').select('*');
+      if (error) {
+        console.error('Error fetching products:', error);
+      } else {
+        setProducts(data.map((product: { id: string; productName: string; last_updated?: string }) => ({
+          id: product.id,
+          name: product.productName,
+          category: "N/A",
+          stock: 0,
+          lastUpdated: "Add later",
+        })));
+        
+      }
+    }
+    fetchProducts();
+  
     async function fetchUser() {
       const { data } = await supabase.auth.getSession();
       if (data.session && data.session.user && data.session.user.email) {
@@ -36,6 +54,7 @@ export default function AdminPanel() {
     }
     fetchUser();
   }, []);
+  
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -55,34 +74,10 @@ export default function AdminPanel() {
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
 
-  const products: Product[] = [
-    {
-      id: 'LS990',
-      name: 'Switch Series LS990',
-      category: 'Switches',
-      stock: 234,
-      lastUpdated: '2024-02-17'
-    },
-    {
-      id: 'A500',
-      name: 'A500 Aluminium',
-      category: 'Switches',
-      stock: 156,
-      lastUpdated: '2024-02-16'
-    },
-    {
-      id: 'CD500',
-      name: 'CD500 Series',
-      category: 'Controls',
-      stock: 45,
-      lastUpdated: '2024-02-15'
-    }
-  ];
-
   const filteredProducts = products.filter(product => {
     const searchTerm = searchQuery.toLowerCase();
     return (
-      product.id.toLowerCase().includes(searchTerm) ||
+      String(product.id).includes(searchTerm)||
       product.name.toLowerCase().includes(searchTerm) ||
       product.category.toLowerCase().includes(searchTerm)
     );
