@@ -14,29 +14,40 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+const [selectedOption, setSelectedOption] = useState<string>("");
+  
+    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      setSelectedOption(event.target.value);
+    };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        router.push('/admin');
+    const handleRegister = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      setError("");
+    
+      const role = selectedOption === "admin" ? "admin" : "consultant";
+    
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { role }, // Set role in user_metadata
+          },
+        });
+    
+        if (error) {
+          setError(error.message);
+        } else {
+          console.log("User registered:", data);
+          router.push(role === "admin" ? "/admin" : "/admin"); // Redirect based on role
+        }
+      } catch (error) {
+        setError("An unexpected error occurred. Please try again later.");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      setError('An unexpected error occurred. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -87,6 +98,26 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="radio">
+          <label>
+            <input
+              type="radio"
+              value="consultant"
+              checked={selectedOption === "consultant"}
+              onChange={handleChange}
+            />
+            Consultant
+          </label>
+          <label>
+            <input
+              type="radio"
+              value="admin"
+              checked={selectedOption === "admin"}
+              onChange={handleChange}
+            />
+            Admin
+          </label>
+        </div>
             </div>
           </div>
 
