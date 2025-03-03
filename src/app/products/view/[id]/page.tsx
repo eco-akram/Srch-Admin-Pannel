@@ -16,15 +16,21 @@ export default function ViewProduct() {
   useEffect(() => {
     const fetchProduct = async () => {
       const { data, error } = await supabase
-        .from('products')
+        .from('Products')  // capitalized to match
         .select('*')
         .eq('id', id)
         .single();
-
+    
       if (error) {
         console.error('Error fetching product:', error.message);
       } else {
-        setProduct(data);
+        // Map the database fields to the expected format
+        setProduct({
+          id: data.id,
+          name: data.productName,
+          description: data.productDescription,
+          // map other fields as needed
+        });
       }
       setLoading(false);
     };
