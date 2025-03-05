@@ -14,40 +14,40 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-const [selectedOption, setSelectedOption] = useState<string>("");
+  const [selectedOption, setSelectedOption] = useState<string>("");
   
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      setSelectedOption(event.target.value);
-    };
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedOption(event.target.value);
+  };
 
-    const handleRegister = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true);
-      setError("");
-    
-      const role = selectedOption === "admin" ? "admin" : "consultant";
-    
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { role }, // Set role in user_metadata
-          },
-        });
-    
-        if (error) {
-          setError(error.message);
-        } else {
-          console.log("User registered:", data);
-          router.push(role === "admin" ? "/admin" : "/admin"); // Redirect based on role
-        }
-      } catch (error) {
-        setError("An unexpected error occurred. Please try again later.");
-      } finally {
-        setLoading(false);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+  
+    const role = selectedOption === "admin" ? "admin" : "consultant";
+  
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { role }, // Set role in user_metadata
+        },
+      });
+  
+      if (error) {
+        setError(error.message);
+      } else {
+        console.log("User registered:", data);
+        router.push(role === "admin" ? "/admin" : "/admin"); // Redirect based on role
       }
-    };
+    } catch (error) {
+      setError("An unexpected error occurred. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -98,26 +98,41 @@ const [selectedOption, setSelectedOption] = useState<string>("");
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <div className="radio">
-          <label>
-            <input
-              type="radio"
-              value="consultant"
-              checked={selectedOption === "consultant"}
-              onChange={handleChange}
-            />
-            Consultant
-          </label>
-          <label>
-            <input
-              type="radio"
-              value="admin"
-              checked={selectedOption === "admin"}
-              onChange={handleChange}
-            />
-            Admin
-          </label>
-        </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Role</label>
+              <div className="flex space-x-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <div className="flex items-center">
+                  <input
+                    id="consultant"
+                    type="radio"
+                    value="consultant"
+                    name="role"
+                    checked={selectedOption === "consultant"}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    required
+                  />
+                  <label htmlFor="consultant" className="ml-2 block text-sm font-medium text-gray-700">
+                    Consultant
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    id="admin"
+                    type="radio"
+                    value="admin"
+                    name="role"
+                    checked={selectedOption === "admin"}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label htmlFor="admin" className="ml-2 block text-sm font-medium text-gray-700">
+                    Admin
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 

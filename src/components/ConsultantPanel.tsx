@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Upload, Filter, LogOut, Eye, User } from 'lucide-react';
+import { Package, Users, Settings, Search, BarChart3, Grid, Menu, X, Download, Filter, LogOut, Eye, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -77,7 +77,7 @@ export default function AdminPanel() {
   const filteredProducts = products.filter(product => {
     const searchTerm = searchQuery.toLowerCase();
     return (
-      String(product.id).includes(searchTerm)||
+      String(product.id).includes(searchTerm) ||
       product.name.toLowerCase().includes(searchTerm) ||
       product.category.toLowerCase().includes(searchTerm)
     );
@@ -148,12 +148,6 @@ export default function AdminPanel() {
               >
                 <Download className="w-4 h-4" />
                 <span>Export</span>
-              </Button>
-              <Button
-                className="flex items-center space-x-2"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Import</span>
               </Button>
               {/* Profile Icon */}
               {userEmail && (

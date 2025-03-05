@@ -279,6 +279,10 @@ CREATE POLICY "Allow public read on Questions" ON "public"."Questions" FOR SELEC
 
 
 
+CREATE POLICY "Allow read access to Products" ON "public"."Products" FOR SELECT USING (("auth"."role"() = 'authenticated'::"text"));
+
+
+
 ALTER TABLE "public"."Answers" ENABLE ROW LEVEL SECURITY;
 
 
@@ -286,6 +290,9 @@ ALTER TABLE "public"."Categories" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."Product_Answers" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."Products" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."Questions" ENABLE ROW LEVEL SECURITY;
