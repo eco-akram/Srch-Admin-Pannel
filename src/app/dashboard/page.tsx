@@ -104,22 +104,6 @@ export default function AdminPage() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      window.location.href = "/login";
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  };
-
-  const menuItems: MenuItem[] = [
-    { id: "products", icon: Package, label: "Products" },
-    { id: "categories", icon: Grid, label: "Categories" },
-    { id: "users", icon: Users, label: "Users" },
-    { id: "settings", icon: Settings, label: "Settings" },
-  ];
-
   const filteredProducts = products.filter((product) => {
     const searchTerm = searchQuery.toLowerCase();
     return (
@@ -140,10 +124,6 @@ export default function AdminPage() {
 
   const handleView = (productId: string) => {
     router.push(`/products/view/${productId}`);
-  };
-
-  const handleRegister = () => {
-    router.push("/register");
   };
 
   const handleDeleteClick = (productId: string) => {
@@ -199,7 +179,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-4">
               <div className="text-xl font-medium">
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                <h1>DASHBOARD</h1>
               </div>
               <div className="text-sm text-gray-500">
                 All products ({products.length})
