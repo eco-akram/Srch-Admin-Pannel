@@ -8,6 +8,7 @@ type SessionContextType = {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  role: string | null;
   signOut: () => Promise<void>;
 };
 
@@ -15,6 +16,7 @@ const SessionContext = createContext<SessionContextType>({
   session: null,
   user: null,
   isLoading: true,
+  role: null,
   signOut: async () => {},
 });
 
@@ -22,6 +24,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     // Get initial session
@@ -33,6 +36,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         } else {
           setSession(data.session);
           setUser(data.session?.user || null);
+          setRole(data.session?.user?.user_metadata?.role || null);
         }
       } catch (err) {
         console.error('Session fetch error:', err);
@@ -47,6 +51,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user || null);
+      setRole(session?.user?.user_metadata?.role || null);
       setIsLoading(false);
     });
 
@@ -66,7 +71,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SessionContext.Provider value={{ session, user, isLoading, signOut }}>
+    <SessionContext.Provider value={{ session, user, isLoading, role, signOut }}>
       {children}
     </SessionContext.Provider>
   );

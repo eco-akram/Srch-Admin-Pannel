@@ -2,11 +2,38 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminPanel from '@/components/AdminPanel';
-import Consultantpanel from '@/components/ConsultantPanel';
-import { supabase } from '@/lib/supabase';
+import { useSession } from '@/context/SessionContext';
 
 export default function Page() {
+  const router = useRouter();
+  const { isLoading, session } = useSession();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (session) {
+        setIsAuthenticated(true);
+        router.push('/dashboard/products');
+      } else {
+        router.push('/login');
+      }
+    }
+  }, [isLoading, session, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+}
+
+/* export default function Page() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,11 +80,4 @@ export default function Page() {
   if (!isAuthenticated) {
     return null;
   }
-  if(role=="admin"){
-return <AdminPanel />;
-  }
-  else{
-    return <Consultantpanel />
-  }
-  
-}
+} */
