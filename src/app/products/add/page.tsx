@@ -26,31 +26,33 @@ export default function AddProduct() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+// Find the handleSubmit function and update it with this code:
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setSaving(true);
+  setError(null);
 
-    try {
-      // Remove empty strings for optional fields
-      const productData = {
-        ...formData,
-        productDescription: formData.productDescription || null,
-        productImage: formData.productImage || null,
-      };
+  try {
+    // Add lastUpdated timestamp for new products
+    const productData = {
+      ...formData,
+      productDescription: formData.productDescription || null,
+      productImage: formData.productImage || null,
+      lastUpdated: new Date().toISOString() // Add this line
+    };
 
-      const { error } = await supabase.from('Products').insert([productData]);
-      
-      if (error) throw error;
-      
-      router.push('/dashboard/products');
-    } catch (err) {
-      console.error('Error adding product:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add product');
-    } finally {
-      setSaving(false);
-    }
-  };
+    const { error } = await supabase.from('Products').insert([productData]);
+    
+    if (error) throw error;
+    
+    router.push('/dashboard/products');
+  } catch (err) {
+    console.error('Error adding product:', err);
+    setError(err instanceof Error ? err.message : 'Failed to add product');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleBack = () => {
     router.back();

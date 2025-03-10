@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS "public"."Products" (
     "productName" "text" DEFAULT 'No product name'::"text",
     "productDescription" "text" DEFAULT 'No product description'::"text",
     "productImage" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "lastUpdated" timestamp with time zone DEFAULT "now"()
 );
 
 
@@ -256,6 +257,18 @@ ALTER TABLE ONLY "public"."Product_Answers"
 
 ALTER TABLE ONLY "public"."Questions"
     ADD CONSTRAINT "Questions_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "public"."Categories"("id");
+
+
+
+CREATE POLICY "Allow authenticated users to delete products" ON "public"."Products" FOR DELETE TO "authenticated" USING (true);
+
+
+
+CREATE POLICY "Allow authenticated users to insert products" ON "public"."Products" FOR INSERT TO "authenticated" WITH CHECK (true);
+
+
+
+CREATE POLICY "Allow authenticated users to update products" ON "public"."Products" FOR UPDATE TO "authenticated" USING (true) WITH CHECK (true);
 
 
 
