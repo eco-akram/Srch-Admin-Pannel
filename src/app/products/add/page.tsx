@@ -43,7 +43,7 @@ export default function AddProduct() {
       
       if (error) throw error;
       
-      router.push('/admin');
+      router.push('/dashboard/products');
     } catch (err) {
       console.error('Error adding product:', err);
       setError(err instanceof Error ? err.message : 'Failed to add product');

@@ -22,7 +22,7 @@ interface MenuItem {
 
 export default function Sidebar() {
   const router = useRouter();
-  const { user, role, isLoading: isAuthChecking, signOut } = useSession();
+  const { role, signOut } = useSession();
 
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("products");

@@ -18,7 +18,6 @@ export type Category = {
 export type Question = {
   id: string
   question: string
-  description: string
   answers: string[]
 }
 

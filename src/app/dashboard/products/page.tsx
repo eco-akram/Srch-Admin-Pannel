@@ -2,13 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  Package,
-  Users,
-  Settings,
   Search,
-  Grid,
   Download,
-  Filter,
   Pencil,
   Eye,
   Plus,
@@ -24,12 +19,6 @@ import { Pagination } from "@/components/ui/Pagination";
 import { DbProduct, UiProduct, dbToUiProduct } from "@/utils/dataTransformers";
 import { useSession } from "@/context/SessionContext";
 import Sidebar from "@/components/Sidebar";
-
-interface MenuItem {
-  id: string;
-  icon: React.ElementType;
-  label: string;
-}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -96,15 +85,6 @@ export default function AdminPage() {
       setLoading(false);
     }
   }
-
-  const filteredProducts = products.filter((product) => {
-    const searchTerm = searchQuery.toLowerCase();
-    return (
-      String(product.id).includes(searchTerm) ||
-      product.name.toLowerCase().includes(searchTerm) ||
-      (product.categoryName || "").toLowerCase().includes(searchTerm)
-    );
-  });
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -223,10 +203,6 @@ export default function AdminPage() {
                 aria-label="Search products"
               />
             </div>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Filter className="w-4 h-4" aria-hidden="true" />
-              <span>Filters</span>
-            </Button>
           </div>
         </header>
 
@@ -258,13 +234,13 @@ export default function AdminPage() {
                 <div className="text-center">Actions</div>
               </div>
 
-              {filteredProducts.length === 0 ? (
+              {products.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   No products found matching your search.
                 </div>
               ) : (
                 <>
-                  {filteredProducts.map((product) => (
+                  {products.map((product) => (
                     <div
                       key={product.id}
                       className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50 items-center"

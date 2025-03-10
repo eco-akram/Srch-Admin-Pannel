@@ -78,7 +78,7 @@ export default function EditProduct() {
       if (error) throw error;
       
       // Navigate back or show success
-      router.push('/admin');
+      router.push('/dashboard/products');
     } catch (err) {
       console.error('Error updating product:', err);
       setFormError(err instanceof Error ? err.message : 'Failed to update product');
