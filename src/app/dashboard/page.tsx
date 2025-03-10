@@ -192,13 +192,15 @@ export default function AdminPage() {
                 <span>Export</span>
               </Button>
               {/* Add Product Button */}
-              <Button
-                className="flex items-center space-x-2"
-                onClick={() => router.push("/products/add")}
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                <span>Add Product</span>
-              </Button>
+              {role === "admin" && (
+                <Button
+                  className="flex items-center space-x-2"
+                  onClick={() => router.push("/products/add")}
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  <span>Add Product</span>
+                </Button>
+              )}
               {/* Profile Icon */}
               {user ? (
                 <div className="flex items-center space-x-2">
@@ -230,10 +232,6 @@ export default function AdminPage() {
                 aria-label="Search products"
               />
             </div>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Filter className="w-4 h-4" aria-hidden="true" />
-              <span>Filters</span>
-            </Button>
           </div>
         </header>
 
@@ -265,13 +263,13 @@ export default function AdminPage() {
                 <div className="text-center">Actions</div>
               </div>
 
-              {filteredProducts.length === 0 ? (
+              {products.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   No products found matching your search.
                 </div>
               ) : (
                 <>
-                  {filteredProducts.map((product) => (
+                  {products.map((product) => (
                     <div
                       key={product.id}
                       className="grid grid-cols-5 gap-4 p-4 border-b hover:bg-gray-50 items-center"
