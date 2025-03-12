@@ -63,11 +63,12 @@ export default function EditProduct() {
     setFormError(null);
     
     try {
-      // Convert UI product back to DB format
+      // Convert UI product back to DB format with current timestamp
       const dbProduct = {
         productName: product.name,
         productDescription: product.description,
-        productImage: product.imageUrl,
+        productImage: product.imageUrl || null,
+        lastUpdated: new Date().toISOString() // Add timestamp when updating
       };
       
       const { error } = await supabase
@@ -174,37 +175,23 @@ export default function EditProduct() {
             </div>
             
             <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Product Image
-  </label>
-  <ImageUpload
-    currentImageUrl={product.imageUrl}
-    onImageUploaded={(url) => {
-      setProduct(prev => ({
-        ...prev!,
-        imageUrl: url
-      }));
-    }}
-    onClearImage={() => {
-      setProduct(prev => ({
-        ...prev!,
-        imageUrl: ''
-      }));
-    }}
-  />
-</div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="stock">
-                Stock
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Product Image
               </label>
-              <input
-                id="stock"
-                name="stock"
-                type="number"
-                value={product.stock}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-md"
+              <ImageUpload
+                currentImageUrl={product.imageUrl || undefined}
+                onImageUploaded={(url) => {
+                  setProduct(prev => ({
+                    ...prev!,
+                    imageUrl: url
+                  }));
+                }}
+                onClearImage={() => {
+                  setProduct(prev => ({
+                    ...prev!,
+                    imageUrl: ''
+                  }));
+                }}
               />
             </div>
             

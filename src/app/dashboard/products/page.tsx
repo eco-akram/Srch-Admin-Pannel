@@ -42,49 +42,53 @@ export default function AdminPage() {
     }
   }, [isAuthChecking, user, currentPage]);
 
-  async function fetchProducts() {
-    if (isAuthChecking) {
-      return; // Don't fetch while checking auth
-    }
-
-    setLoading(true);
-    setError(null);
-
-    // Calculate pagination ranges
-    const from = (currentPage - 1) * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
-
-    try {
-      // First get the count for pagination
-      const { count, error: countError } = await supabase
-        .from("Products")
-        .select("*", { count: "exact", head: true });
-
-      if (countError) throw countError;
-
-      setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
-
-      // Now get the actual data with pagination
-      const { data, error } = await supabase
-        .from("Products")
-        .select("*")
-        .range(from, to);
-
-      if (error) throw error;
-
-      if (data) {
-        const uiProducts = data.map((product) =>
-          dbToUiProduct(product as DbProduct)
-        );
-        setProducts(uiProducts);
-      }
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch products");
-    } finally {
-      setLoading(false);
-    }
+// Find the fetchProducts function and update it with this code:
+async function fetchProducts() {
+  if (isAuthChecking) {
+    return; // Don't fetch while checking auth
   }
+
+  setLoading(true);
+  setError(null);
+
+  // Calculate pagination ranges
+  const from = (currentPage - 1) * ITEMS_PER_PAGE;
+  const to = from + ITEMS_PER_PAGE - 1;
+
+  try {
+    // First get the count for pagination
+    const { count, error: countError } = await supabase
+      .from("Products")
+      .select("*", { count: "exact", head: true });
+
+    if (countError) throw countError;
+
+    setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
+
+    // Now get the actual data with pagination
+    // Added sorting by lastUpdated (newest first) then created_at (newest first)
+    const { data, error } = await supabase
+      .from("Products")
+      .select("*")
+      .order('lastUpdated', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    if (data) {
+      const uiProducts = data.map((product) =>
+        dbToUiProduct(product as DbProduct)
+      );
+      setProducts(uiProducts);
+    }
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    setError(err instanceof Error ? err.message : "Failed to fetch products");
+  } finally {
+    setLoading(false);
+  }
+}
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -105,7 +109,7 @@ export default function AdminPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!productToDelete) return;
+    if (!productToDelete || role !== "admin") return;
 
     try {
       const { error } = await supabase
@@ -128,6 +132,28 @@ export default function AdminPage() {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setProductToDelete(null);
+  };
+
+  const formatLastUpdated = (dateString: string | null | undefined): string => {
+    // Handle null, undefined, or empty string
+    if (!dateString) return "N/A";
+
+    // Handle the specific "Not available" string case
+    if (dateString === "Not available") return "Not available";
+
+    try {
+      const date = new Date(dateString);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return "Not available";
+      }
+
+      // Format valid date as YYYY/MM/DD HH:MM:SS
+      return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${date.toTimeString().slice(0, 8)}`;
+    } catch (e) {
+      return "Not available";
+    }
   };
 
   // Show authentication loading state
@@ -164,14 +190,16 @@ export default function AdminPage() {
                 <Download className="w-4 h-4" aria-hidden="true" />
                 <span>Export</span>
               </Button>
-              {/* Add Product Button */}
-              <Button
-                className="flex items-center space-x-2"
-                onClick={() => router.push("/products/add")}
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                <span>Add Product</span>
-              </Button>
+              {/* Add Product Button - Only visible to admin */}
+              {role === "admin" && (
+                <Button
+                  className="flex items-center space-x-2"
+                  onClick={() => router.push("/products/add")}
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  <span>Add Product</span>
+                </Button>
+              )}
               {/* Profile Icon */}
               {user ? (
                 <div className="flex items-center space-x-2">
@@ -249,7 +277,7 @@ export default function AdminPage() {
                       <div className="col-span-2">
                         <div className="font-medium">{product.name}</div>
                         <div className="text-sm text-gray-500">
-                          Last updated: {product.lastUpdated}
+                          Last updated: {formatLastUpdated(product.lastUpdated || (product as any).created_at)}
                         </div>
                       </div>
                       <div>{product.categoryName || "N/A"}</div>
@@ -280,15 +308,18 @@ export default function AdminPage() {
                             <span className="text-xs">Edit</span>
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
-                          onClick={() => handleDeleteClick(product.id)}
-                        >
-                          <Trash2 className="w-4 h-4" aria-hidden="true" />
-                          <span className="text-xs">Delete</span>
-                        </Button>
+                        {/* Delete button - restricted to admin role */}
+                        {role === "admin" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
+                            onClick={() => handleDeleteClick(product.id)}
+                          >
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
+                            <span className="text-xs">Delete</span>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}

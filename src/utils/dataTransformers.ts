@@ -1,30 +1,35 @@
-// src/utils/dataTransformers.ts
+// First, update your dataTransformers.ts file:
+
 export interface DbProduct {
-  id: string;
+  id: string | number;
   productName: string;
   productDescription?: string;
-  productImage?: string;
-  last_updated?: string;
+  productImage?: string | null;
+  created_at: string;
+  lastUpdated?: string | null;
+  // Add any other fields from your database
 }
 
 export interface UiProduct {
   id: string;
   name: string;
-  description?: string;
-  imageUrl?: string;
-  categoryName?: string; // Added this property
-  stock: number;
+  description: string;
+  imageUrl: string | null;
+  categoryName?: string;
+  created_at: string;
   lastUpdated: string;
+  // Add any other UI fields
 }
 
-export function dbToUiProduct(product: DbProduct): UiProduct {
+export function dbToUiProduct(dbProduct: DbProduct): UiProduct {
   return {
-    id: product.id,
-    name: product.productName,
-    description: product.productDescription,
-    imageUrl: product.productImage,
-    categoryName: "N/A", // Set a default value
-    stock: 0, // Replace with actual stock when available
-    lastUpdated: product.last_updated || "Not available",
+    id: String(dbProduct.id),
+    name: dbProduct.productName || '',
+    description: dbProduct.productDescription || '',
+    imageUrl: dbProduct.productImage || null,
+    categoryName: '',
+    created_at: dbProduct.created_at || '',
+    // Check for lastUpdated first, then fall back to created_at
+    lastUpdated: dbProduct.lastUpdated || dbProduct.created_at || '',
   };
 }
