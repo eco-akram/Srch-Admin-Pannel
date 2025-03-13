@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,25 +14,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
-import AddQuestionModal, {
-  type Category,
-  type Question,
-} from "@/components/AddQuestionModal";
 import { useSession } from "@/context/SessionContext";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-
+import { Question, Category } from "@/components/AddQuestionModal"
+import AddQuestionModal from "@/components/AddQuestionModal";
+import EditQuestionModal from "@/components/EditQuestionModal"; // Adjust the path as needed
+import AddCategoryModal from "@/components/AddCategoryModal";
+import {Product} from "@/components/AddQuestionModal"
 //TODO CREATE A FUNTION TO CHECK IF USER IS AUTHENTICATED
 
 export default function CategoriesPage() {
@@ -46,19 +34,22 @@ export default function CategoriesPage() {
   >({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [newQuestionText, setNewQuestionText] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null
   );
-
+  const [answers, setAnswers] = useState([""]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
+  // State for step-by-step answer product assignment
+  const [, setCurrentStep] = useState(0); // 0: question, 1+: answers
+  const [answerProducts, setAnswerProducts] = useState<Record<number, string[]>>({});
+  const [answerIdMap, setAnswerIdMap] = useState<Record<number, string>>({});
   const totalQuestions = categories.reduce(
     (acc, category) => acc + category.questions.length,
     0
   );
-
+   const [, setQuestionName] = useState("");
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
@@ -69,21 +60,89 @@ export default function CategoriesPage() {
       [categoryId]: !prev[categoryId],
     }));
   };
-
+  
+  const handleEditClick = async (question: Question) => {
+    try {
+      setLoading(true);
+      const { data: questionData, error: questionError } = await supabase
+        .from("Questions")
+        .select(`
+          id, questionText, categoryId,
+          Answers(id, answerText, 
+            Product_Answers(id, productId))
+        `)
+        .eq('id', question.id)
+        .single();
+  
+      if (questionError) throw questionError;
+  
+      if (!questionData || !questionData.Answers) {
+        console.error("No answers found for this question!");
+        return;
+      }
+  
+      // First, set up the question and basic data
+      setEditingQuestion(question);
+      setSelectedCategoryId(questionData.categoryId);
+      setQuestionName(questionData.questionText);
+      
+      // Set up answers
+      const fetchedAnswers = questionData.Answers.map(answer => answer.answerText);
+      setAnswers(fetchedAnswers.length > 0 ? fetchedAnswers : ['']);
+  
+      // Log each answer and its products for debugging
+      questionData.Answers.forEach((answer, index) => {
+        console.log(`Answer ${index}: ${answer.answerText}`);
+        console.log(`Products for answer ${index}:`, answer.Product_Answers?.map(pa => pa.productId) || []);
+      });
+  
+      // Set up product relationships
+      const productRelationships: Record<number, string[]> = {};
+      const answerIdMapping: Record<number, string> = {};
+  
+      questionData.Answers.forEach((answer, index) => {
+        answerIdMapping[index] = answer.id;
+        
+        // Make sure to map the product IDs properly
+        productRelationships[index] = answer.Product_Answers
+          ? answer.Product_Answers.map(pa => pa.productId)
+          : [];
+      });
+  
+      // Log the product relationships and answer ID mapping for debugging
+      console.log("Product relationships:", productRelationships);
+      console.log("Answer ID mapping:", answerIdMapping);
+  
+      // Open the modal with the prepared data
+      setShowEditQuestionModal(true);
+      setCurrentStep(0);
+      
+      // Important: Set these AFTER all other state has been set
+      // This ensures the data is passed correctly to the modal
+      setAnswerProducts(productRelationships);
+      setAnswerIdMap(answerIdMapping);
+    } catch (err) {
+      console.error("Error fetching question details:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+   
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const { data, error } = await supabase.from("Categories").select(`
-            id, categoryName, categoryDescription,
-            Questions!inner(id, questionText, 
-                Answers!inner(id, answerText)
-            )
-          `);
+        // Fetch categories and questions
+        const { data: categoriesData, error: categoriesError } = await supabase.from("Categories").select(`
+          id, categoryName, categoryDescription,
+          Questions!inner(id, questionText, 
+              Answers!inner(id, answerText)
+          )
+        `);
 
-        if (error) throw error;
+        if (categoriesError) throw categoriesError;
 
-        const formattedData = data.map((category) => ({
+        const formattedData = categoriesData.map((category) => ({
           id: category.id,
           name: category.categoryName,
           description: category.categoryDescription,
@@ -101,8 +160,12 @@ export default function CategoriesPage() {
             {}
           )
         );
+
+        // Fetch products
+        await getProducts();
+        
       } catch (err) {
-        console.error("Error fetching categories:", err);
+        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
@@ -113,165 +176,87 @@ export default function CategoriesPage() {
     }
   }, [isAuthChecking]);
 
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
-
+  // Fetch products from database
+  const getProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from("Categories")
-        .insert([
-          {
-            categoryName: newCategoryName,
-            categoryDescription: newCategoryDescription,
-          },
-        ])
-        .select();
+      const { data: productsData, error: productsError } = await supabase
+        .from("Products")
+        .select("id, productName");
 
-      if (error) throw error;
+      if (productsError) throw productsError;
+      setProducts(productsData || []);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    }
+  };
 
-      if (data) {
-        setCategories([
-          ...categories,
-          {
-            id: data[0].id,
-            name: newCategoryName,
-            description: newCategoryDescription,
-            questions: [],
-          },
-        ]);
+  // Initialize answerProducts when answers change
+  useEffect(() => {
+    const newAnswerProducts = {...answerProducts};
+    answers.forEach((_, index) => {
+      if (!newAnswerProducts[index]) {
+        newAnswerProducts[index] = [];
       }
-    } catch (err) {
-      console.error("Error creating category:", err);
-    } finally {
-      setShowAddModal(false);
-      setNewCategoryName("");
-      setNewCategoryDescription("");
-    }
-  };
-
-  const handleCreateQuestion = async () => {
-    if (!newQuestionText.trim() || !selectedCategoryId) return;
-    try {
-      const { data, error } = await supabase
-        .from("Questions")
-        .insert([
-          { questionText: newQuestionText, categoryId: selectedCategoryId },
-        ])
-        .select();
-
-      if (error) throw error;
-
-      if (data) {
-        setCategories(
-          categories.map((category) =>
-            category.id === selectedCategoryId
-              ? {
-                  ...category,
-                  questions: [
-                    ...category.questions,
-                    { id: data[0].id, question: newQuestionText, answers: [] },
-                  ],
-                }
-              : category
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error creating question:", err);
-    } finally {
-      setNewQuestionText("");
-      setSelectedCategoryId(null);
-      setShowAddQuestionModal(false);
-    }
-  };
-
-  const handleEditQuestion = async () => {
-    if (!editingQuestion || !newQuestionText.trim()) return;
-    try {
-      await supabase
-        .from("Questions")
-        .update({ questionText: newQuestionText })
-        .eq("id", editingQuestion.id);
-      setCategories(
-        categories.map((category) => ({
-          ...category,
-          questions: category.questions.map((q) =>
-            q.id === editingQuestion.id
-              ? { ...q, question: newQuestionText }
-              : q
-          ),
-        }))
-      );
-    } catch (err) {
-      console.error("Error updating question:", err);
-    } finally {
-      setEditingQuestion(null);
-      setNewQuestionText("");
-    }
-  };
+    });
+    setAnswerProducts(newAnswerProducts);
+  }, [answers]);
 
   const handleDeleteQuestion = async (questionId: string) => {
-    try {
-      await supabase.from("Questions").delete().eq("id", questionId);
-      setCategories(
-        categories.map((category) => ({
-          ...category,
-          questions: category.questions.filter((q) => q.id !== questionId),
-        }))
-      );
-    } catch (err) {
-      console.error("Error deleting question:", err);
-    }
-  };
-
-  async function fetchData() {
+  try {
     setLoading(true);
-    try {
-      const { data, error } = await supabase.from("Categories").select(`
-                id, categoryName, categoryDescription,
-                Questions!inner(id, questionText, 
-                    Answers!inner(id, answerText)
-                )
-            `);
-
-      if (error) throw error;
-
-      // Transform data into UI structure
-      const formattedData = data.map((category) => ({
-        id: category.id,
-        name: category.categoryName,
-        description: category.categoryDescription,
-        questions: category.Questions.map((question) => ({
-          id: question.id,
-          question: question.questionText,
-          answers: question.Answers.map((answer) => answer.answerText),
-        })),
-      }));
-
-      setCategories(formattedData);
-      setExpandedCategories(
-        formattedData.reduce(
-          (acc, category) => ({ ...acc, [category.id]: true }),
-          {}
-        )
-      );
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-    } finally {
-      setLoading(false);
+    
+    // Get answer IDs first
+    const { data: answers, error: answersError } = await supabase
+      .from("Answers")
+      .select('id')
+      .eq('questionsId', questionId);
+      
+    if (answersError) throw answersError;
+    
+    if (answers && answers.length > 0) {
+      const answerIds = answers.map(a => a.id);
+      
+      // Delete product associations first
+      const { error: productLinkDeleteError } = await supabase
+        .from("Product_Answers")
+        .delete()
+        .in('answerId', answerIds);
+        
+      if (productLinkDeleteError) throw productLinkDeleteError;
+      
+      // Then delete the answers
+      const { error: answerDeleteError } = await supabase
+        .from("Answers")
+        .delete()
+        .eq('questionsId', questionId);
+        
+      if (answerDeleteError) throw answerDeleteError;
     }
+    
+    // Finally delete the question
+    const { error: questionDeleteError } = await supabase
+      .from("Questions")
+      .delete()
+      .eq("id", questionId);
+      
+    if (questionDeleteError) throw questionDeleteError;
+    
+    // Update UI state
+    setCategories(
+      categories.map((category) => ({
+        ...category,
+        questions: category.questions.filter((q) => q.id !== questionId),
+      }))
+    );
+    
+  } catch (err) {
+    console.error("Error deleting question:", err);
+  } finally {
+    setLoading(false);
   }
+};
 
-  // ============================================================================================
-  // ============================================================================================
-
-  useEffect(() => {
-    if (!isAuthChecking) {
-      fetchData();
-    }
-  }, [isAuthChecking]);
-
-  if (loading == true) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -352,8 +337,6 @@ export default function CategoriesPage() {
                     </Button>
                   </div>
 
-                  {/* HERE */}
-
                   <Button
                     className="mx-4 mt-3"
                     onClick={() => {
@@ -393,20 +376,17 @@ export default function CategoriesPage() {
                               </div>
                             </div>
                             <div className="flex justify-center space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="flex items-center space-x-1 hover:bg-gray-100"
-                                onClick={() => {
-                                  setEditingQuestion(question);
-                                  setNewQuestionText(question.question);
-                                }}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center space-x-1 hover:bg-gray-100"
+                              onClick={() => handleEditClick(question)}
                               >
-                                <Edit
-                                  className="w-4 h-4 text-gray-500"
-                                  aria-hidden="true"
-                                />
-                                <span className="text-xs">Edit</span>
+                              <Edit
+                              className="w-4 h-4 text-gray-500"
+                              aria-hidden="true"
+                              />
+                              <span className="text-xs">Edit</span>
                               </Button>
                               <Button
                                 variant="ghost"
@@ -440,54 +420,41 @@ export default function CategoriesPage() {
           </div>
         </main>
       </div>
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Category</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Category name"
-          />
-          <Input
-            value={newCategoryDescription}
-            onChange={(e) => setNewCategoryDescription(e.target.value)}
-            placeholder="Category description"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateCategory}>Create</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      
+      {/* Add Category Modal */}
+      <AddCategoryModal 
+  showAddModal={showAddModal}
+  setShowAddModal={setShowAddModal}
+  categories={categories}
+  setCategories={setCategories}
+  setExpandedCategories={setExpandedCategories}
+/>
 
-      <Dialog
-        open={showAddQuestionModal}
-        onOpenChange={setShowAddQuestionModal}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Question</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Question name"
-          />
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowAddQuestionModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateQuestion}>Create</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add Question Modal */}
+      <AddQuestionModal 
+  showAddQuestionModal={showAddQuestionModal}
+  setShowAddQuestionModal={setShowAddQuestionModal}
+  selectedCategoryId={selectedCategoryId}
+  setSelectedCategoryId={setSelectedCategoryId}
+  categories={categories}
+  setCategories={setCategories}
+  products={products}
+/>
+
+      {/* Edit Question Modal */}
+  
+      <EditQuestionModal
+  open={showEditQuestionModal}
+  onOpenChange={setShowEditQuestionModal}
+  editingQuestion={editingQuestion}
+  selectedCategoryId={selectedCategoryId}
+  categories={categories}
+  onCategoriesChange={setCategories}
+  products={products}
+  initialAnswerProducts={answerProducts}
+  initialAnswerIdMap={answerIdMap}
+/>
+
     </div>
   );
 }
