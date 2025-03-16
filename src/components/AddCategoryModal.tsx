@@ -29,7 +29,6 @@ interface AddCategoryModalProps {
   setShowAddModal: (show: boolean) => void;
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
-  setExpandedCategories: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 export default function AddCategoryModal({
@@ -37,7 +36,6 @@ export default function AddCategoryModal({
   setShowAddModal,
   categories,
   setCategories,
-  setExpandedCategories,
 }: AddCategoryModalProps) {
   const [loading, setLoading] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -76,11 +74,6 @@ export default function AddCategoryModal({
             questions: [],
           },
         ]);
-        // Expand the new category by default
-        setExpandedCategories((prev) => ({
-          ...prev,
-          [data[0].id]: true,
-        }));
         // Close the modal automatically on success
         setShowAddModal(false);
         // Removed the success alert
