@@ -43,7 +43,8 @@ export default function Sidebar() {
   const menuItems: MenuItem[] = [
     { nav: "dashboard/products", icon: Package, label: "Products" },
     { nav: "dashboard/categories", icon: Grid, label: "Categories" },
-    { nav: "dashboard/users", icon: Users, label: "Users" },
+    // Only show Users section to admins
+    ...(role === "admin" ? [{ nav: "dashboard/users", icon: Users, label: "Users" }] : []),
     { nav: "dashboard/settings", icon: Settings, label: "Settings" },
   ];
 
@@ -95,6 +96,7 @@ export default function Sidebar() {
           );
         })}
 
+        {/* Only show Register User button to admins */}
         {role === "admin" && (
           <button
             onClick={handleRegister}
