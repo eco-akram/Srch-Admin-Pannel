@@ -40,55 +40,83 @@ export default function AdminPage() {
     if (!isAuthChecking && user) {
       fetchProducts();
     }
-  }, [isAuthChecking, user, currentPage]);
+  }, [isAuthChecking, user, currentPage, searchQuery]); // Added searchQuery as dependency
 
-// Find the fetchProducts function and update it with this code:
-async function fetchProducts() {
-  if (isAuthChecking) {
-    return; // Don't fetch while checking auth
-  }
-
-  setLoading(true);
-  setError(null);
-
-  // Calculate pagination ranges
-  const from = (currentPage - 1) * ITEMS_PER_PAGE;
-  const to = from + ITEMS_PER_PAGE - 1;
-
-  try {
-    // First get the count for pagination
-    const { count, error: countError } = await supabase
-      .from("Products")
-      .select("*", { count: "exact", head: true });
-
-    if (countError) throw countError;
-
-    setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
-
-    // Now get the actual data with pagination
-    // Added sorting by lastUpdated (newest first) then created_at (newest first)
-    const { data, error } = await supabase
-      .from("Products")
-      .select("*")
-      .order('lastUpdated', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (error) throw error;
-
-    if (data) {
-      const uiProducts = data.map((product) =>
-        dbToUiProduct(product as DbProduct)
-      );
-      setProducts(uiProducts);
+  async function fetchProducts() {
+    if (isAuthChecking) {
+      return; // Don't fetch while checking auth
     }
-  } catch (err) {
-    console.error("Error fetching products:", err);
-    setError(err instanceof Error ? err.message : "Failed to fetch products");
-  } finally {
-    setLoading(false);
+
+    setLoading(true);
+    setError(null);
+
+    // Calculate pagination ranges
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    try {
+      // First get the count for pagination
+      let countQuery = supabase
+        .from("Products")
+        .select("*", { count: "exact", head: true });
+        
+      // Apply search filter if search query is not empty
+      if (searchQuery.trim()) {
+        // Check if the search query is a number (potential ID search)
+        const isNumericSearch = !isNaN(Number(searchQuery));
+        
+        if (isNumericSearch) {
+          // Search by ID (exact match for numeric ID)
+          countQuery = countQuery.eq('id', searchQuery);
+        } else {
+          // Search by product name (case-insensitive partial match)
+          countQuery = countQuery.ilike('productName', `%${searchQuery}%`);
+        }
+      }
+      
+      const { count, error: countError } = await countQuery;
+
+      if (countError) throw countError;
+
+      setTotalPages(Math.ceil((count || 0) / ITEMS_PER_PAGE));
+
+      // Now get the actual data with pagination
+      let dataQuery = supabase
+        .from("Products")
+        .select("*");
+        
+      // Apply the same search filter to data query
+      if (searchQuery.trim()) {
+        const isNumericSearch = !isNaN(Number(searchQuery));
+        
+        if (isNumericSearch) {
+          dataQuery = dataQuery.eq('id', searchQuery);
+        } else {
+          dataQuery = dataQuery.ilike('productName', `%${searchQuery}%`);
+        }
+      }
+      
+      // Apply sorting and pagination
+      const { data, error } = await dataQuery
+        .order('lastUpdated', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      if (data) {
+        const uiProducts = data.map((product) =>
+          dbToUiProduct(product as DbProduct)
+        );
+        setProducts(uiProducts);
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch products");
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -226,7 +254,7 @@ async function fetchProducts() {
                 type="text"
                 value={searchQuery}
                 onChange={handleSearch}
-                placeholder="Search by ID, name, or category..."
+                placeholder="Search by Product ID or Name..."
                 className="ml-2 outline-none w-full"
                 aria-label="Search products"
               />
