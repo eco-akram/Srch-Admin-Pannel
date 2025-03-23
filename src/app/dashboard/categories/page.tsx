@@ -409,7 +409,6 @@ export default function CategoriesPage() {
         setSelectedCategoryId={setSelectedCategoryId}
         categories={categories}
         setCategories={setCategories}
-        products={products}
       />
 
       {/* Edit Question Modal */}
