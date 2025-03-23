@@ -20,6 +20,11 @@ import { DbProduct, UiProduct, dbToUiProduct } from "@/utils/dataTransformers";
 import { useSession } from "@/context/SessionContext";
 import Sidebar from "@/components/Sidebar";
 
+// Import jsPDF in a way that autoTable plugin can properly attach to it
+import jsPDF from "jspdf";
+// Import autoTable directly - it will attach itself to the jsPDF prototype
+import autoTable from 'jspdf-autotable';
+
 export default function AdminPage() {
   const router = useRouter();
   const { user, role, isLoading: isAuthChecking } = useSession();
@@ -184,6 +189,69 @@ export default function AdminPage() {
     }
   };
 
+  // Function to handle PDF export
+  const handleExport = async () => {
+    // Show loading state while preparing the export
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch all products for export (without pagination)
+      const { data, error } = await supabase
+        .from("Products")
+        .select("*")
+        .order('lastUpdated', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        // Convert database products to UI format
+        const allProducts = data.map((product) => dbToUiProduct(product as DbProduct));
+        
+        // Create PDF document using the standard import method
+        const doc = new jsPDF();
+        
+        // Add title
+        doc.setFontSize(18);
+        doc.text('Products Report', 14, 20);
+        
+        // Add generation info
+        doc.setFontSize(10);
+        const dateStr = new Date().toLocaleString();
+        doc.text(`Generated on: ${dateStr}`, 14, 28);
+        doc.text(`Total Products: ${allProducts.length}`, 14, 34);
+        
+        // Prepare table data
+        const tableColumn = ["Product ID", "Name", "Category", "Last Updated"];
+        const tableRows = allProducts.map(product => [
+          product.id,
+          product.name,
+          product.categoryName || "N/A",
+          formatLastUpdated(product.lastUpdated)
+        ]);
+        
+        // Generate the table - autoTable has been added to jsPDF's prototype
+        autoTable(doc, {
+          startY: 40,
+          head: [tableColumn],
+          body: tableRows,
+          headStyles: { fillColor: [66, 66, 66] },
+          alternateRowStyles: { fillColor: [241, 245, 249] },
+          margin: { top: 40 }
+        });
+        
+        // Save the PDF
+        doc.save("products-report.pdf");
+      }
+    } catch (err) {
+      console.error("Error exporting products:", err);
+      setError(err instanceof Error ? err.message : "Failed to export products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Show authentication loading state
   if (isAuthChecking) {
     return (
@@ -214,9 +282,14 @@ export default function AdminPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="outline" className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                className="flex items-center space-x-2"
+                onClick={handleExport}
+                disabled={loading}
+              >
                 <Download className="w-4 h-4" aria-hidden="true" />
-                <span>Export</span>
+                <span>{loading ? 'Exporting...' : 'Export'}</span>
               </Button>
               {/* Add Product Button - Only visible to admin */}
               {role === "admin" && (
