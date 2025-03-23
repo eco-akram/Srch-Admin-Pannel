@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react"; // Added Trash2 icon
 
 type User = {
   id: string;
@@ -29,6 +30,10 @@ export default function UsersPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("authenticated");
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Add state for deletion functionality
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Simple notification state instead of toast
   const [notification, setNotification] = useState<{type: NotificationType; message: string}>({
@@ -157,6 +162,54 @@ export default function UsersPage() {
     }
   };
 
+  // Add handler for delete button click
+  const handleDeleteClick = (userId: string) => {
+    setUserToDelete(userId);
+    setShowDeleteConfirm(true);
+  };
+
+  // Add handler for confirming deletion
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      setIsUpdating(true);
+      
+      const response = await fetch('/api/auth/delete-user', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userToDelete
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete user');
+      }
+      
+      // Update local state by removing the deleted user
+      setUsers(users.filter(user => user.id !== userToDelete));
+      showNotification("success", "User deleted successfully");
+      
+    } catch (err: any) {
+      console.error("Error deleting user:", err);
+      showNotification("error", err.message || "Failed to delete user");
+    } finally {
+      setIsUpdating(false);
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
+    }
+  };
+
+  // Add handler for canceling deletion
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setUserToDelete(null);
+  };
+
   // Filter users based on search query and role filter
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
@@ -198,7 +251,7 @@ export default function UsersPage() {
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
             <Input
-              placeholder="Search by email or ID..."
+              placeholder="Search by email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full"
@@ -263,50 +316,18 @@ export default function UsersPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(user.created_at)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(user.last_sign_in_at)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {editingUserId === user.id ? (
-                            <div className="flex items-center space-x-2">
-                              <Select 
-                                value={selectedRole} 
-                                onValueChange={setSelectedRole}
-                                disabled={isUpdating}
-                              >
-                                <SelectTrigger className="h-8 w-28">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="authenticated">Authenticated</SelectItem>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="consultant">Consultant</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleSetRole(user.id)}
-                                disabled={isUpdating}
-                              >
-                                {isUpdating ? <LoadingSpinner size="small" /> : "Save"}
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => setEditingUserId(null)}
-                                disabled={isUpdating}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => {
-                                setEditingUserId(user.id);
-                                setSelectedRole(user.role || "authenticated");
-                              }}
+                          <div className="flex items-center space-x-2">
+                            {/* Delete button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
+                              onClick={() => handleDeleteClick(user.id)}
                             >
-                              Edit Role
+                              <Trash2 className="w-4 h-4" aria-hidden="true" />
+                              <span className="text-xs">Delete</span>
                             </Button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -326,6 +347,26 @@ export default function UsersPage() {
           </>
         )}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h3 className="text-lg font-medium mb-4">Confirm User Deletion</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this user? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <Button variant="outline" onClick={handleCancelDelete} disabled={isUpdating}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete} disabled={isUpdating}>
+                {isUpdating ? <LoadingSpinner size="small" /> : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
