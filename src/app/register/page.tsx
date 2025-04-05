@@ -14,8 +14,9 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [selectedOption, setSelectedOption] = useState<string>("");
-  
+
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedOption(event.target.value);
   };
@@ -24,26 +25,36 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-  
+    setSuccess("");
+
     const role = selectedOption === "admin" ? "admin" : "consultant";
-  
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { role }, // Set role in user_metadata
+          emailRedirectTo: `${window.location.origin}/dashboard/products`,
         },
       });
-  
+
       if (error) {
         setError(error.message);
       } else {
         console.log("User registered:", data);
-        router.push(role === "admin" ? "/admin" : "/admin"); // Redirect based on role
+
+        // If email confirmation is required
+        if (data?.user && !data.user.confirmed_at) {
+          setSuccess("Registration successful! Please check your email to confirm your account.");
+        } else {
+          // If no email confirmation needed or already confirmed
+          router.push("/dashboard/products");
+        }
       }
-    } catch (error) {
+    } catch (err) {
       setError("An unexpected error occurred. Please try again later.");
+      console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
@@ -63,7 +74,13 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
-          
+
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
+              {success}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
