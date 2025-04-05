@@ -1,108 +1,222 @@
+// src/app/products/edit/[id]/page.tsx
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { DbProduct, UiProduct, dbToUiProduct } from '@/utils/dataTransformers';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
-interface EditProductProps {
-  id: string;
-}
-
-export default function EditProduct({ id }: EditProductProps) {
+export default function EditProduct() {
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter();
+  const [product, setProduct] = useState<UiProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  const fetchProduct = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await supabase
+        .from('Products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setProduct(dbToUiProduct(data as DbProduct));
+      } else {
+        throw new Error('Product not found');
+      }
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!product) return;
+    
+    setSaving(true);
+    setFormError(null);
+    
+    try {
+      // Convert UI product back to DB format with current timestamp
+      const dbProduct = {
+        productName: product.name,
+        productDescription: product.description,
+        productImage: product.imageUrl || null,
+        lastUpdated: new Date().toISOString() // Add timestamp when updating
+      };
+      
+      const { error } = await supabase
+        .from('Products')
+        .update(dbProduct)
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Navigate back or show success
+      router.push('/dashboard/products');
+    } catch (err) {
+      console.error('Error updating product:', err);
+      setFormError(err instanceof Error ? err.message : 'Failed to update product');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    setProduct(prev => {
+      if (!prev) return prev;
+      
+      // Reset image error if editing image URL
+      if (name === 'imageUrl') {
+        setImageError(null);
+      }
+      
+      return {
+        ...prev,
+        [name]: value
+      };
+    });
+  };
 
   const handleBack = () => {
     router.back();
   };
-
-  const handleSave = () => {
-    console.log('Saving product:', id);
-    router.back();
+  
+  const checkImageUrl = (url: string) => {
+    if (!url) return;
+    
+    const img = new Image();
+    img.onload = () => setImageError(null);
+    img.onerror = () => setImageError('Image URL is not valid or image cannot be loaded');
+    img.src = url;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <Button
-          variant="ghost"
-          className="mb-4"
-          onClick={handleBack}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Products
-        </Button>
-        <h1 className="text-2xl font-bold">Edit Product</h1>
-        <p className="text-gray-500">ID: {id}</p>
-      </div>
+    <div className="container mx-auto p-6 max-w-4xl">
+      <Button 
+        variant="outline" 
+        className="mb-6 flex items-center gap-2"
+        onClick={handleBack}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Products
+      </Button>
 
-      {/* Edit Form */}
-      <div className="bg-white rounded-lg shadow p-6 max-w-6xl">
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product Name
-            </label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border rounded-md"
-              placeholder="Enter product name"
-              defaultValue="Switch Series LS990"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              className="w-full px-3 py-2 border rounded-md min-h-[100px] resize-vertical"
-              placeholder="Write a detailed description of the product and its features..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            {/* Question Column */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Question
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border rounded-md min-h-[100px] resize-vertical"
-                placeholder="Your Question"
-              />
-            </div>
-
-            {/* Answer Column */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Answer
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border rounded-md min-h-[100px] resize-vertical"
-                placeholder="Provide your answer here..."
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-4 pt-4">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              className="flex items-center"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
-            </Button>
-          </div>
+      {error ? (
+        <ErrorAlert message={error} onRetry={fetchProduct} />
+      ) : loading ? (
+        <div className="bg-white rounded-lg border p-8">
+          <LoadingSpinner size="large" />
         </div>
-      </div>
+      ) : product ? (
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <div className="p-6 border-b">
+            <h1 className="text-2xl font-bold">Edit Product</h1>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {formError && (
+              <ErrorAlert message={formError} />
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="name">
+                Product Name
+              </label>
+              <input
+                id="name"
+                name="name"
+                value={product.name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="description">
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={product.description || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-md h-32"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Product Image
+              </label>
+              <ImageUpload
+                currentImageUrl={product.imageUrl || undefined}
+                onImageUploaded={(url) => {
+                  setProduct(prev => ({
+                    ...prev!,
+                    imageUrl: url
+                  }));
+                }}
+                onClearImage={() => {
+                  setProduct(prev => ({
+                    ...prev!,
+                    imageUrl: ''
+                  }));
+                }}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-4 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving || !!imageError}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <p className="text-center text-lg text-gray-500">
+          Product not found.
+        </p>
+      )}
     </div>
   );
 }
