@@ -24,9 +24,9 @@ export default function LoginPage() {
       setLoading(false);
     }
     checkUser();
-  }, [ router ]);
+  }, [router]);
 
-  async function handleLogin(e : React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -46,7 +46,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-lg">
+      <div className="max-w-md w-full space-y-8 border bg-white p-8 rounded-lg shadow-lg">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">JUNG</h2>
           <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
