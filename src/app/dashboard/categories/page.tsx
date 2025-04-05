@@ -49,9 +49,34 @@ export default function CategoriesPage() {
     0
   );
   const [, setQuestionName] = useState("");
+  
+  // Check if user is admin
+  const isAdmin = role === "admin";
+  
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
+
+  // Filter categories and questions based on search query
+  const filteredCategories = categories.filter(category => {
+    // If search query is empty, show all categories
+    if (!searchQuery.trim()) return true;
+    
+    // Check if category name or description matches the search query
+    const categoryMatches = 
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Check if any question in the category matches the search query
+    const questionMatches = category.questions.some(question => 
+      question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      question.answers.some(answer => 
+        answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
+    
+    return categoryMatches || questionMatches;
+  });
 
   const handleEditClick = async (question: Question) => {
     try {
@@ -133,13 +158,12 @@ export default function CategoriesPage() {
       try {
         // Fetch categories and questions
         const { data: categoriesData, error: categoriesError } =
-        await supabase.from("Categories").select(`
+          await supabase.from("Categories").select(`
           id, categoryName, categoryDescription,
           Questions(id, questionText, 
               Answers(id, answerText)
           )
         `);
-      
 
         if (categoriesError) throw categoriesError;
 
@@ -147,13 +171,16 @@ export default function CategoriesPage() {
           id: category.id,
           name: category.categoryName,
           description: category.categoryDescription,
-          questions: category.Questions ? category.Questions.map((question) => ({
-            id: question.id,
-            question: question.questionText,
-            answers: question.Answers ? question.Answers.map((answer) => answer.answerText) : [],
-          })) : []
+          questions: category.Questions
+            ? category.Questions.map((question) => ({
+                id: question.id,
+                question: question.questionText,
+                answers: question.Answers
+                  ? question.Answers.map((answer) => answer.answerText)
+                  : [],
+              }))
+            : [],
         }));
-        
 
         setCategories(formattedData);
 
@@ -250,6 +277,154 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      setLoading(true);
+      console.log("Starting category deletion for ID:", categoryId);
+  
+      // First, check if the category exists
+      const { data: categoryExists, error: categoryCheckError } = await supabase
+        .from("Categories")
+        .select("id")
+        .eq("id", categoryId)
+        .single();
+      
+      if (categoryCheckError) {
+        console.error("Error checking if category exists:", categoryCheckError);
+        throw categoryCheckError;
+      }
+      
+      if (!categoryExists) {
+        console.error("Category not found:", categoryId);
+        alert("Category not found. It may have already been deleted.");
+        return;
+      }
+      
+      console.log("Category exists, proceeding with deletion");
+  
+      // Fetch all questions associated with the category
+      const { data: questions, error: questionsError } = await supabase
+        .from("Questions")
+        .select("id")
+        .eq("categoryId", categoryId);
+  
+      if (questionsError) {
+        console.error("Error fetching questions:", questionsError);
+        throw questionsError;
+      }
+  
+      console.log("Found questions to delete:", questions?.length || 0);
+  
+      if (questions && questions.length > 0) {
+        const questionIds = questions.map((q) => q.id);
+  
+        // Fetch all answers associated with the questions
+        const { data: answers, error: answersError } = await supabase
+          .from("Answers")
+          .select("id")
+          .in("questionsId", questionIds);
+  
+        if (answersError) {
+          console.error("Error fetching answers:", answersError);
+          throw answersError;
+        }
+  
+        console.log("Found answers to delete:", answers?.length || 0);
+  
+        if (answers && answers.length > 0) {
+          const answerIds = answers.map((a) => a.id);
+  
+          // Delete product associations for the answers
+          const { error: productLinkDeleteError } = await supabase
+            .from("Product_Answers")
+            .delete()
+            .in("answerId", answerIds);
+  
+          if (productLinkDeleteError) {
+            console.error("Error deleting product links:", productLinkDeleteError);
+            throw productLinkDeleteError;
+          }
+  
+          console.log("Deleted product associations");
+  
+          // Delete the answers
+          const { error: answerDeleteError } = await supabase
+            .from("Answers")
+            .delete()
+            .in("id", answerIds);
+  
+          if (answerDeleteError) {
+            console.error("Error deleting answers:", answerDeleteError);
+            throw answerDeleteError;
+          }
+  
+          console.log("Deleted answers");
+        }
+  
+        // Delete the questions
+        const { error: questionDeleteError } = await supabase
+          .from("Questions")
+          .delete()
+          .in("id", questionIds);
+  
+        if (questionDeleteError) {
+          console.error("Error deleting questions:", questionDeleteError);
+          throw questionDeleteError;
+        }
+  
+        console.log("Deleted questions");
+      }
+  
+      // Finally, delete the category
+      const { data: deleteResult, error: categoryDeleteError } = await supabase
+        .from("Categories")
+        .delete()
+        .eq("id", categoryId)
+        .select();
+  
+      if (categoryDeleteError) {
+        console.error("Category deletion error:", categoryDeleteError);
+        throw categoryDeleteError;
+      }
+      
+      console.log("Delete result:", deleteResult);
+      
+      if (!deleteResult || deleteResult.length === 0) {
+        console.error("Category deletion failed - no rows affected");
+        alert("Failed to delete category. No rows were affected.");
+        return;
+      }
+  
+      console.log("Category deleted successfully:", categoryId);
+  
+      // Update the UI state
+      setCategories(
+        categories.filter((category) => category.id !== categoryId)
+      );
+      
+      // Verify deletion
+      const { data: verifyDelete, error: verifyError } = await supabase
+        .from("Categories")
+        .select("id")
+        .eq("id", categoryId)
+        .single();
+        
+      if (verifyError && verifyError.code !== "PGRST116") {
+        console.error("Error verifying deletion:", verifyError);
+      } else if (verifyDelete) {
+        console.error("Category still exists after deletion!");
+        alert("Category deletion may have failed. Please refresh the page.");
+      } else {
+        console.log("Deletion verified - category no longer exists");
+      }
+    } catch (err) {
+      console.error("Error deleting category:", err);
+      alert("Failed to delete category. Please check the console for details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -278,13 +453,11 @@ export default function CategoriesPage() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="outline" className="flex items-center space-x-2">
-                <Download className="w-4 h-4" aria-hidden="true" />
-                <span>Export</span>
-              </Button>
-              <Button onClick={() => setShowAddModal(true)}>
-                <Plus className="w-4 h-4" /> Add Category
-              </Button>
+              {isAdmin && (
+                <Button onClick={() => setShowAddModal(true)}>
+                  <Plus className="w-4 h-4" /> Add Category
+                </Button>
+              )}
             </div>
           </div>
 
@@ -305,12 +478,12 @@ export default function CategoriesPage() {
 
         <main className="p-6">
           <div className="space-y-6">
-            {categories.length === 0 ? (
+            {filteredCategories.length === 0 ? (
               <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
                 No categories or questions found matching your search.
               </div>
             ) : (
-              categories.map((category) => (
+              filteredCategories.map((category) => (
                 <div key={category.id} className="bg-white rounded-lg border">
                   <div className="flex items-center justify-between p-4 border-b cursor-pointer hover:bg-gray-50">
                     <div className="flex-row items-center ">
@@ -319,15 +492,30 @@ export default function CategoriesPage() {
                         {category.description}
                       </p>
                     </div>
-                    <Button
-                      className="mx-4 mt-3"
-                      onClick={() => {
-                        setSelectedCategoryId(category.id);
-                        setShowAddQuestionModal(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4" /> Add Question
-                    </Button>
+                    <div className="flex items-baseline space-x-2">
+                      {isAdmin && (
+                        <Button
+                          className="mx-4 mt-3"
+                          onClick={() => {
+                            setSelectedCategoryId(category.id);
+                            setShowAddQuestionModal(true);
+                          }}
+                        >
+                          <Plus className="w-4 h-4" /> Add Question
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
+                          onClick={() => handleDeleteCategory(category.id)}
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                          <span className="text-xs">Delete</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <>
@@ -355,27 +543,31 @@ export default function CategoriesPage() {
                           </div>
                         </div>
                         <div className="flex justify-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="flex items-center space-x-1 hover:bg-gray-100"
-                            onClick={() => handleEditClick(question)}
-                          >
-                            <Edit
-                              className="w-4 h-4 text-gray-500"
-                              aria-hidden="true"
-                            />
-                            <span className="text-xs">Edit</span>
-                          </Button>
-                      <Button
-                            variant="ghost"
-                            size="sm"
-                            className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
-                            onClick={() => handleDeleteQuestion(question.id)}
-                          >
-                            <Trash2 className="w-4 h-4" aria-hidden="true" />
-                            <span className="text-xs">Delete</span>
-                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center space-x-1 hover:bg-gray-100"
+                              onClick={() => handleEditClick(question)}
+                            >
+                              <Edit
+                                className="w-4 h-4 text-gray-500"
+                                aria-hidden="true"
+                              />
+                              <span className="text-xs">Edit</span>
+                            </Button>
+                          )}
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center space-x-1 hover:bg-red-100 text-red-500"
+                              onClick={() => handleDeleteQuestion(question.id)}
+                            >
+                              <Trash2 className="w-4 h-4" aria-hidden="true" />
+                              <span className="text-xs">Delete</span>
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -394,36 +586,42 @@ export default function CategoriesPage() {
       </div>
 
       {/* Add Category Modal */}
-      <AddCategoryModal
-        showAddModal={showAddModal}
-        setShowAddModal={setShowAddModal}
-        categories={categories}
-        setCategories={setCategories}
-      />
+      {isAdmin && (
+        <AddCategoryModal
+          showAddModal={showAddModal}
+          setShowAddModal={setShowAddModal}
+          categories={categories}
+          setCategories={setCategories}
+        />
+      )}
 
       {/* Add Question Modal */}
-      <AddQuestionModal
-        showAddQuestionModal={showAddQuestionModal}
-        setShowAddQuestionModal={setShowAddQuestionModal}
-        selectedCategoryId={selectedCategoryId}
-        setSelectedCategoryId={setSelectedCategoryId}
-        categories={categories}
-        setCategories={setCategories}
-      />
+      {isAdmin && (
+        <AddQuestionModal
+          showAddQuestionModal={showAddQuestionModal}
+          setShowAddQuestionModal={setShowAddQuestionModal}
+          selectedCategoryId={selectedCategoryId}
+          setSelectedCategoryId={setSelectedCategoryId}
+          categories={categories}
+          setCategories={setCategories}
+          products={products}
+        />
+      )}
 
       {/* Edit Question Modal */}
-
-      <EditQuestionModal
-        open={showEditQuestionModal}
-        onOpenChange={setShowEditQuestionModal}
-        editingQuestion={editingQuestion}
-        selectedCategoryId={selectedCategoryId}
-        categories={categories}
-        onCategoriesChange={setCategories}
-        products={products}
-        initialAnswerProducts={answerProducts}
-        initialAnswerIdMap={answerIdMap}
-      />
+      {isAdmin && (
+        <EditQuestionModal
+          open={showEditQuestionModal}
+          onOpenChange={setShowEditQuestionModal}
+          editingQuestion={editingQuestion}
+          selectedCategoryId={selectedCategoryId}
+          categories={categories}
+          onCategoriesChange={setCategories}
+          products={products}
+          initialAnswerProducts={answerProducts}
+          initialAnswerIdMap={answerIdMap}
+        />
+      )}
     </div>
   );
 }

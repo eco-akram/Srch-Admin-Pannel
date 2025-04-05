@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   Package,
   Users,
-  Settings,
   Grid,
   Menu,
   X,
@@ -44,7 +43,6 @@ export default function Sidebar() {
     { nav: "dashboard/products", icon: Package, label: "Products" },
     { nav: "dashboard/categories", icon: Grid, label: "Categories" },
     { nav: "dashboard/users", icon: Users, label: "Users" },
-    { nav: "dashboard/settings", icon: Settings, label: "Settings" },
   ];
 
   return (
