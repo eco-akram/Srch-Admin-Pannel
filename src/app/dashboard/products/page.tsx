@@ -145,6 +145,15 @@ export default function AdminPage() {
     if (!productToDelete || role !== "admin") return;
 
     try {
+      // First delete all related product-answer associations
+      const { error: relationError } = await supabase
+        .from("Product_Answers")
+        .delete()
+        .eq("productId", productToDelete);
+
+      if (relationError) throw relationError;
+
+      // Then delete the product itself
       const { error } = await supabase
         .from("Products")
         .delete()

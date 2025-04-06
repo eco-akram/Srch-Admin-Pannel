@@ -9,6 +9,7 @@ import {
   X,
   LogOut,
   UserPlus,
+  Settings,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";

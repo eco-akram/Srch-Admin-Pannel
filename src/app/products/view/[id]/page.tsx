@@ -9,12 +9,41 @@ import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { DbProduct, UiProduct, dbToUiProduct } from '@/utils/dataTransformers';
+import { Badge } from '@/components/ui/badge';
+
+// Extended UiProduct type to include answers
+interface ExtendedUiProduct extends UiProduct {
+  answers?: { 
+    id: string; 
+    answerText: string;
+    questionText?: string; // Pridėtas klausimas
+  }[];
+}
+
+// Type definitions for the Supabase response
+interface AnswerData {
+  id: string;
+  answerText: string;
+  Questions?: {
+    id: string;
+    questionText: string;
+  };
+}
+
+interface ProductAnswerRelation {
+  answerId: string;
+  Answers: AnswerData;
+}
+
+interface ProductWithAnswers extends DbProduct {
+  Product_Answers: ProductAnswerRelation[];
+}
 
 export default function ViewProduct() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const [product, setProduct] = useState<UiProduct | null>(null);
+  const [product, setProduct] = useState<ExtendedUiProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,16 +58,48 @@ export default function ViewProduct() {
     setError(null);
 
     try {
+      // Fetch product with its linked answers and questions
       const { data, error } = await supabase
         .from('Products')
-        .select('*')
+        .select(`
+          *,
+          Product_Answers (
+            answerId,
+            Answers:answerId (
+              id,
+              answerText,
+              Questions:questionsId (
+                id,
+                questionText
+              )
+            )
+          )
+        `)
         .eq('id', id)
         .single();
 
       if (error) throw error;
 
       if (data) {
-        setProduct(dbToUiProduct(data as DbProduct));
+        // Transform the data to include answers in a more accessible format
+        const baseProduct = dbToUiProduct(data as DbProduct);
+        
+        // Extract answers from nested response with proper typing
+        const productWithAnswers = data as ProductWithAnswers;
+        const answers = productWithAnswers.Product_Answers
+          ?.map((pa: ProductAnswerRelation) => pa.Answers)
+          .filter((a: AnswerData | null) => a !== null)
+          .map((a: AnswerData) => ({
+            id: a.id,
+            answerText: a.answerText,
+            questionText: a.Questions?.questionText
+          })) || [];
+
+        // Set product with answers
+        setProduct({
+          ...baseProduct,
+          answers
+        });
       } else {
         throw new Error('Product not found');
       }
@@ -111,6 +172,34 @@ export default function ViewProduct() {
                 <p className="text-lg">{product.description}</p>
               </div>
             )}
+            
+            {/* Display Linked Answers with Questions */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Linked Answers
+              </label>
+              <div className="space-y-3">
+                {product.answers && product.answers.length > 0 ? (
+                  product.answers.map((answer) => (
+                    <div key={answer.id} className="border rounded-md p-3">
+                      <div className="mb-1">
+                        <span className="text-sm font-medium text-gray-700">Question: </span>
+                        <span>{answer.questionText || "Unknown question"}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Answer: </span>
+                        <Badge variant="secondary" className="text-sm py-1">
+                          {answer.answerText}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No linked answers</p>
+                )}
+              </div>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Last Updated
